@@ -1,19 +1,20 @@
 """
 TODO: add in policy checking and mapping email addresses to users
 """
-import re
 from tiddlyweb.commands import make_command
 from tiddlyweb.model.bag import Bag
 from tiddlyweb.model.tiddler import Tiddler
 from tiddlyweb.model.recipe import Recipe
-import logging
 from tiddlyweb import control
 from tiddlywebplugins.utils import get_store
 from tiddlyweb.store import Store,NoTiddlerError, NoBagError, NoRecipeError
 from tiddlyweb.config import config
+
 import feedparser
 import datetime
-DEFAULT_SUBSCRIPTION = "daily"
+import logging
+import re
+from string import Template
 
 class EmailAddressError(Exception):
     pass
@@ -23,7 +24,7 @@ def parse_input(raw):
     """
     entry point from mail server
 
-    twanager parse_input <raw email from server here>
+    twanager parse_input < raw_email_as_input
 
     take a raw email input and turn it into something we can operate on
     """
@@ -33,16 +34,21 @@ def parse_input(raw):
     smtp.send(email_to_send)
     """
   
-def determine_bag(emailAddress):
+def determine_bag(email_address, config):
     """
-    temporary function to map email address to bag name
+    function to map email address to bag name
+    """
+    try:
+        full_domain = email_address.split("@", 1)[1]
+    except KeyError:
+        raise EmailAddressError('Invalid email address: %s' % email_address)
 
-    TODO - replace with a proper mapping function
-       - add support for choice between recipes and bags
-    """
-    handle, host = emailAddress.split("@")
-    host_bits = host.split(".")
-    return "%s_private" % host_bits[0]
+    host = config['server_host']['host'].lstrip('www.')
+    bag_sub = full_domain.rstrip(host)
+    bag_template = Template(config['email']['bag_mapping'])
+    bag_name = bag_template.safe_substitute(bag=bag_sub)
+
+    return bag_name
 
 def get_subscriptions_bag(store):
     subscription_bag = "subscriptions.%s"%DEFAULT_SUBSCRIPTION
