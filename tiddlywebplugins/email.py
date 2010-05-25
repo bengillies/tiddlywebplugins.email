@@ -20,159 +20,159 @@ class EmailAddressError(Exception):
 
 @make_command()
 def parse_input(raw):
-  """
-  entry point from mail server
-  
-  twanager parse_input <raw email from server here>
-  
-  take a raw email input and turn it into something we can operate on
-  """
-  """
-  email = email_object_function(raw)
-  email_to_send = handle_email(email)
-  smtp.send(email_to_send)
-  """
+    """
+    entry point from mail server
+
+    twanager parse_input <raw email from server here>
+
+    take a raw email input and turn it into something we can operate on
+    """
+    """
+    email = email_object_function(raw)
+    email_to_send = handle_email(email)
+    smtp.send(email_to_send)
+    """
   
 def determine_bag(emailAddress):
-  """
-  temporary function to map email address to bag name
-  
-  TODO - replace with a proper mapping function
+    """
+    temporary function to map email address to bag name
+
+    TODO - replace with a proper mapping function
        - add support for choice between recipes and bags
-  """
-  handle, host = emailAddress.split("@")
-  host_bits = host.split(".")
-  return "%s_private" % host_bits[0]
+    """
+    handle, host = emailAddress.split("@")
+    host_bits = host.split(".")
+    return "%s_private" % host_bits[0]
 
 def get_subscriptions_bag(store):
-  subscription_bag = "subscriptions.%s"%DEFAULT_SUBSCRIPTION
-  try:
-    store.get(Bag(subscription_bag))
-  except NoBagError:
-    store.put(Bag(subscription_bag))
-  return subscription_bag
+    subscription_bag = "subscriptions.%s"%DEFAULT_SUBSCRIPTION
+    try:
+        store.get(Bag(subscription_bag))
+    except NoBagError:
+        store.put(Bag(subscription_bag))
+    return subscription_bag
   
 def delete_subscription(email):
-  store = get_store(config)
-  recipe = determine_bag(email["to"])
-  fromAddress = email["from"]  
-  subscription_bag= get_subscriptions_bag(store)
-  
-  try:
-    subscribers_tiddler = store.get(Tiddler("recipes/%s/tiddlers"%recipe,subscription_bag))
-    subscriber_emails = subscribers_tiddler.text.splitlines()
-    new_subscriber_emails = []
-    for i in subscriber_emails:
-      if i != fromAddress:
-        new_subscriber_emails.append(i)
-    subscribers_tiddler.text = "\n".join(new_subscriber_emails)
-    store.put(subscribers_tiddler)
-  except NoTiddlerError:
-    pass
-  
-  return {"from":email["to"],"to":email["from"],"subject":"You have been unsubscribed to %s"%recipe,"body":"Harry the dog is currently whining in sadness."}
+    store = get_store(config)
+    recipe = determine_bag(email["to"])
+    fromAddress = email["from"]  
+    subscription_bag= get_subscriptions_bag(store)
+
+    try:
+        subscribers_tiddler = store.get(Tiddler("recipes/%s/tiddlers"%recipe,subscription_bag))
+        subscriber_emails = subscribers_tiddler.text.splitlines()
+        new_subscriber_emails = []
+        for i in subscriber_emails:
+            if i != fromAddress:
+                new_subscriber_emails.append(i)
+        subscribers_tiddler.text = "\n".join(new_subscriber_emails)
+        store.put(subscribers_tiddler)
+    except NoTiddlerError:
+        pass
+
+    return {"from":email["to"],"to":email["from"],"subject":"You have been unsubscribed to %s"%recipe,"body":"Harry the dog is currently whining in sadness."}
   
       
 def make_subscription(email):
-  store = get_store(config)
-  recipe = determine_bag(email["to"])
-  fromAddress = email["from"]
-  subscription_bag= get_subscriptions_bag(store)
-  subscribers_tiddler = Tiddler("recipes/%s/tiddlers"%recipe,subscription_bag)
-  try:
-    subscribers_tiddler = store.get(subscribers_tiddler)
-    subscriber_emails = subscribers_tiddler.text.splitlines()
-    if fromAddress not in subscriber_emails:
-      subscriber_emails.append(fromAddress)
-    subscribers_tiddler.text = "\n".join(subscriber_emails)
-    store.put(subscribers_tiddler)
-  except NoTiddlerError:
-    subscribers_tiddler.text = fromAddress 
-    store.put(subscribers_tiddler)
+    store = get_store(config)
+    recipe = determine_bag(email["to"])
+    fromAddress = email["from"]
+    subscription_bag= get_subscriptions_bag(store)
+    subscribers_tiddler = Tiddler("recipes/%s/tiddlers"%recipe,subscription_bag)
+    try:
+        subscribers_tiddler = store.get(subscribers_tiddler)
+        subscriber_emails = subscribers_tiddler.text.splitlines()
+        if fromAddress not in subscriber_emails:
+            subscriber_emails.append(fromAddress)
+        subscribers_tiddler.text = "\n".join(subscriber_emails)
+        store.put(subscribers_tiddler)
+    except NoTiddlerError:
+        subscribers_tiddler.text = fromAddress 
+        store.put(subscribers_tiddler)
     
-  return {"from":email["to"],"to":email["from"],"subject":"You have subscribed to %s"%recipe,"body":"You will now receive daily digests. To unsubscribe please email unsubscribe@%s"}
+    return {"from":email["to"],"to":email["from"],"subject":"You have subscribed to %s"%recipe,"body":"You will now receive daily digests. To unsubscribe please email unsubscribe@%s"}
 
 def get_email_host(atomurl,env=False):
-  resource = atomurl.split("/")[1]
-  try:
-    host = env["server_host"]["host"]
-    scheme = env["server_host"]["scheme"]
-  except KeyError:
-    host = ""
-    scheme = ""
+    resource = atomurl.split("/")[1]
+    try:
+        host = env["server_host"]["host"]
+        scheme = env["server_host"]["scheme"]
+    except KeyError:
+        host = ""
+        scheme = ""
   
-  if scheme == 'file':
-    host = "tiddlyspace.com"
-  if host[0:4] =="www.":
-    host = host[4:]
-  resource = resource.replace("_private","")
-  resource = resource.replace("_public","")
-  return "%s.%s"%(resource,host)
+    if scheme == 'file':
+        host = "tiddlyspace.com"
+    if host[0:4] =="www.":
+        host = host[4:]
+    resource = resource.replace("_private","")
+    resource = resource.replace("_public","")
+    return "%s.%s"%(resource,host)
   
 def make_digest_email(tiddler,environ={}):
-  mail_to_send = False
-  email_addresses = tiddler.text.splitlines()
-  url_suffix = tiddler.title +".atom"
-  today = datetime.date.today()
-  now = today.strftime("%Y%m%d000000")
-  try:
-    before = tiddler.fields["last_generated"]
-  except KeyError:
-    before = "19000220000000" #select a date wayyyyy in the past
-  qs = "?select=modified:>%s&select=modified:<%s"%(before,now) #filter just the changes
-  try:
-    prefix = config["server_prefix"]
-  except KeyError:
-    prefix = ""
-  try:
-    host_details = config["server_host"]
+    mail_to_send = False
+    email_addresses = tiddler.text.splitlines()
+    url_suffix = tiddler.title +".atom"
+    today = datetime.date.today()
+    now = today.strftime("%Y%m%d000000")
     try:
-      scheme = host_details["scheme"]+"://"
-      if scheme == 'file://':
-        qs = ""
-        scheme = ''
+        before = tiddler.fields["last_generated"]
     except KeyError:
-      scheme=""
+        before = "19000220000000" #select a date wayyyyy in the past
+    qs = "?select=modified:>%s&select=modified:<%s"%(before,now) #filter just the changes
     try:
-      host = host_details["host"]
+        prefix = config["server_prefix"]
     except KeyError:
-      host=""
+        prefix = ""
     try:
-      port =  ":"+host_details["port"]
+        host_details = config["server_host"]
+        try:
+            scheme = host_details["scheme"]+"://"
+            if scheme == 'file://':
+                qs = ""
+                scheme = ''
+        except KeyError:
+            scheme=""
+        try:
+            host = host_details["host"]
+        except KeyError:
+            host=""
+        try:
+            port =  ":"+host_details["port"]
+        except KeyError:
+            port =""
     except KeyError:
-      port =""
-  except KeyError:
-    host = ""
-    scheme = ""
-    port = ""
-  feed_url ="%s%s%s%s/%s%s"%(scheme,host,port,prefix,url_suffix,qs)
-  print feed_url
-  feed = feedparser.parse(feed_url)  
-  entries = feed.entries
-  if len(entries) == 0:
-    return False
-    
-  subject = "Email Digest: %s"%feed['feed']['title']
-  body = u"<html>"
-  for entry in entries:
-    body += u'<div><a href="%s">%s</a>%s</div>'%(entry['link'],entry['title'],entry['summary'])
-  body += u"</html>"
-  mail_to_send = {"bcc":email_addresses,"subject":subject,"body":body,"from":"subscriptions@%s"%get_email_host(tiddler.title,config)}
-  tiddler.fields['last_generated'] = "20100101010101"#add timestamp
-  return mail_to_send
+        host = ""
+        scheme = ""
+        port = ""
+    feed_url ="%s%s%s%s/%s%s"%(scheme,host,port,prefix,url_suffix,qs)
+    print feed_url
+    feed = feedparser.parse(feed_url)  
+    entries = feed.entries
+    if len(entries) == 0:
+        return False
+
+    subject = "Email Digest: %s"%feed['feed']['title']
+    body = u"<html>"
+    for entry in entries:
+        body += u'<div><a href="%s">%s</a>%s</div>'%(entry['link'],entry['title'],entry['summary'])
+    body += u"</html>"
+    mail_to_send = {"bcc":email_addresses,"subject":subject,"body":body,"from":"subscriptions@%s"%get_email_host(tiddler.title,config)}
+    tiddler.fields['last_generated'] = "20100101010101"#add timestamp
+    return mail_to_send
   
 @make_command()
 def make_digest(args):
-  """
-  make_digest subscriptions.daily
-  """
-  bag = args[0]
-  store= get_store(config)
-  bag = store.get(Bag(bag))
-  for tiddler in bag.list_tiddlers():
-    mail = make_digest_email(tiddler)
-    if mail:
-      send_email(mail)
+    """
+    make_digest subscriptions.daily
+    """
+    bag = args[0]
+    store= get_store(config)
+    bag = store.get(Bag(bag))
+    for tiddler in bag.list_tiddlers():
+        mail = make_digest_email(tiddler)
+        if mail:
+            send_email(mail)
 
 def clean_subject(subject):
     """
