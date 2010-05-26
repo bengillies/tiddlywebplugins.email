@@ -69,20 +69,3 @@ def make_subscription(email):
         store.put(subscribers_tiddler)
 
     return {'from':email['to'],'to':email['from'],'subject':'You have subscribed to %s'%recipe,'body':'You will now receive daily digests. To unsubscribe please email unsubscribe@%s'}
-
-def get_email_host(atomurl,env=False):
-    resource = atomurl.split('/')[1]
-    try:
-        host = env['server_host']['host']
-        scheme = env['server_host']['scheme']
-    except KeyError:
-        host = ''
-        scheme = ''
-  
-    if scheme == 'file':
-        host = 'tiddlyspace.com'
-    if host[0:4] =='www.':
-        host = host[4:]
-    resource = resource.replace('_private','')
-    resource = resource.replace('_public','')
-    return '%s.%s'%(resource,host)
