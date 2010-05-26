@@ -1,6 +1,11 @@
 """
 functions related to hanlding subscriptions
 """
+from tiddlyweb.config import config
+from tiddlyweb.store import NoTiddlerError
+from tiddlywebplugins.utils import ensure_bag, get_store
+
+from string import Template
 
 SUPPORTED_SUBSCRIPTIONS = [
     'daily',
@@ -31,21 +36,26 @@ def delete_subscription(email):
     store = get_store(config)
     recipe = determine_bag(email['to'])
     fromAddress = email['from']  
-    subscription_bag= get_subscriptions_bag(store)
+    subscription_bag = get_subscriptions_bag(store)
 
     try:
-        subscribers_tiddler = store.get(Tiddler('bags/%s/tiddlers'%recipe,subscription_bag))
+        subscribers_tiddler = store.get(Tiddler('bags/%s/tiddlers' % recipe, subscription_bag))
         subscriber_emails = subscribers_tiddler.text.splitlines()
-        new_subscriber_emails = []
-        for i in subscriber_emails:
-            if i != fromAddress:
-                new_subscriber_emails.append(i)
-        subscribers_tiddler.text = '\n'.join(new_subscriber_emails)
+        try:
+            subscriber_emails.remove(fromAddress)
+        except ValueError:
+            pass
+
+        subscribers_tiddler.text = '\n'.join(subscriber_emails)
         store.put(subscribers_tiddler)
     except NoTiddlerError:
         pass
   
-    return {'from':email['to'],'to':email['from'],'subject':'You have been unsubscribed to %s'%recipe,'body':'Harry the dog is currently whining in sadness.'}
+    return {'from': email['to'],
+        'to': email['from'],
+        'subject': 'You have been unsubscribed from %s' % recipe,
+        'body': 'Harry the dog is currently whining in sadness.'
+    }
   
       
 def make_subscription(email):
@@ -55,8 +65,8 @@ def make_subscription(email):
     store = get_store(config)
     recipe = determine_bag(email['to'])
     fromAddress = email['from']
-    subscription_bag= get_subscriptions_bag(store)
-    subscribers_tiddler = Tiddler('bags/%s/tiddlers'%recipe,subscription_bag)
+    subscription_bag = get_subscriptions_bag(store)
+    subscribers_tiddler = Tiddler('bags/%s/tiddlers' % recipe, subscription_bag)
     try:
         subscribers_tiddler = store.get(subscribers_tiddler)
         subscriber_emails = subscribers_tiddler.text.splitlines()
@@ -68,4 +78,8 @@ def make_subscription(email):
         subscribers_tiddler.text = fromAddress 
         store.put(subscribers_tiddler)
 
-    return {'from':email['to'],'to':email['from'],'subject':'You have subscribed to %s'%recipe,'body':'You will now receive daily digests. To unsubscribe please email unsubscribe@%s'}
+    return {'from': email['to'],
+        'to': email['from'],
+        'subject': 'You have subscribed to %s' % recipe,
+        'body': 'You will now receive daily digests. To unsubscribe please email unsubscribe@%s'
+    }

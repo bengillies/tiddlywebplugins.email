@@ -3,10 +3,10 @@ entry point for an email coming in
 
 also exit point for sending an email
 """
-from util import EmailAddressError
+from utils import EmailAddressError
 from response import retrieve_from_store
 from put import put_to_store
-from subscriptions import make_subscription, delete__subscription
+from subscriptions import make_subscription, delete_subscription
 
 import re
 
